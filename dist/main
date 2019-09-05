@@ -113,6 +113,57 @@ function printDefList() {
 
 # --------------------------------
 # get
+# AWS_PROFILE=<PROFILE> aws-bash-utils cform list-resources -s my-stack
+# --------------------------------
+
+function cform_list_resources_usage() {
+  local name=$1
+  cat <<EOF
+Usage: $name <[options]>
+Options:
+  -h      --help      Show help [flag]
+  -s      --stack     Stack name [string]
+EOF
+}
+
+function cform_list_resources() {
+  local name="aws-bash-utils cform list-resources"
+  local args=( )
+
+  for x; do
+    case "$x" in
+      --help)   args+=( -h ) ;;
+      --stack)  args+=( -s ) ;;
+      *)        args+=( "$x" ) ;;
+    esac
+  done
+
+  set -- "${args[@]}"
+
+  unset OPTIND
+  while getopts ":hs:" x; do
+    case "$x" in
+      h)  cform_list_resources_usage "$name"; exit 0 ;;
+      s)  local stack="$OPTARG" ;;
+    esac
+  done
+
+  if [[ -z "$stack" ]]; then
+    print "invalid arguments" LIGHTRED; echo ""
+    cform_list_resources_usage "$name"
+    exit 1
+  fi
+
+  # TODO: make sure jq is available
+  aws cloudformation list-stack-resources --stack-name $stack --query 'StackResourceSummaries[*].{id:LogicalResourceId, type:ResourceType}' --output table
+  echo ""
+  local count=$(aws cloudformation list-stack-resources --stack-name $stack --query 'StackResourceSummaries[*].LogicalResourceId' | jq '. | length')
+  print "resources:" LIGHTBLUE; echo $count; echo ""
+}
+#!/usr/bin/env bash
+
+# --------------------------------
+# get
 # AWS_PROFILE=<PROFILE> aws-bash-utils ssm get -p /project/dev/user
 # --------------------------------
 
@@ -272,6 +323,38 @@ function ssm_putjson() {
 }
 #!/usr/bin/env bash
 
+function cform_usage() {
+  local name=$1
+  cat <<EOF
+Usage: $name <[options]>
+Options:
+  -h --help       Show help [flag]
+  list-resources  List resources for stack
+EOF
+}
+
+function cform_main() {
+  local name="aws-bash-utils cform"
+  local target=$1
+
+  if [[ $# -eq 1 ]]; then
+    case "$1" in
+      --help|-h)  cform_usage "$name"; exit 0 ;;
+    esac
+  fi
+
+  shift
+
+  case "$target" in
+    list-resources) cform_list_resources $@ ;;
+    *)              print "invalid arguments" LIGHTRED; echo ""
+                    cform_usage "$name"
+                    exit 1
+                    ;;
+  esac
+}
+#!/usr/bin/env bash
+
 function ssm_usage() {
   local name=$1
   cat <<EOF
@@ -315,6 +398,7 @@ Usage: $name <[options]>
 Options:
   -h --help     Show help [flag]
   ssm           Param Store utils
+  cform         Cloudformation utils
 EOF
 }
 
@@ -332,6 +416,7 @@ function main() {
 
   case "$target" in
     ssm)    ssm_main $@ ;;
+    cform)  cform_main $@ ;;
     *)      print "invalid arguments" LIGHTRED; echo ""
             usage "$name"
             exit 1

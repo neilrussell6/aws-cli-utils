@@ -7,6 +7,7 @@ Usage: $name <[options]>
 Options:
   -h --help     Show help [flag]
   ssm           Param Store utils
+  cform         Cloudformation utils
 EOF
 }
 
@@ -24,6 +25,7 @@ function main() {
 
   case "$target" in
     ssm)    ssm_main $@ ;;
+    cform)  cform_main $@ ;;
     *)      print "invalid arguments" LIGHTRED; echo ""
             usage "$name"
             exit 1
