@@ -1,0 +1,342 @@
+#!/usr/bin/env bash
+
+LIGHTER_GREY=246
+LIGHT_GREY=244
+GREY=243
+DARK_GREY=237
+DARKER_GREY=235
+BLACK=233
+
+BLUE=4
+GOLD=214
+LIGHTBLUE=74
+LIME=106
+RED=124
+LIGHTRED=202
+PINK=219
+WHITE=255
+PURPLE=99
+
+DETAULT_THEME=$LIME
+
+BOLD=1
+DIM=2
+ITALIC=3
+UNDERLINED=4
+NORMAL=5
+
+RESET="\033[0m"
+#!/usr/bin/env bash
+
+function _getBG() {
+  echo "\033[48;5;${1}m"
+}
+
+function _getFG() {
+	local mod="${!2:-$NORMAL}"
+  echo "\033[${mod};38;5;${1}m"
+}
+
+function _print() {
+	printf '%b%b %s %b' $1 $2 "${3}" $RESET
+}
+
+function h1() {
+	local color="${!2:-$DETAULT_THEME}"
+	_print $(_getBG $color) $(_getFG $BLACK BOLD) "${1}"
+}
+
+function h2() {
+	local color="${!2:-$DETAULT_THEME}"
+	_print $(_getBG $BLACK) $(_getFG $color) "${1}"
+}
+
+function h3() {
+	local color="${!2:-$DETAULT_THEME}"
+	_print $(_getBG $BLACK) $(_getFG $LIGHTER_GREY BOLD) "${1}"
+}
+
+function print() {
+	local color="${!2:-$DETAULT_THEME}"
+	local mod="${3:-NORMAL}"
+	_print $RESET $(_getFG $color $mod) "${1}"
+}
+
+function printList() {
+#	local color="${3:-$DETAULT_THEME}"
+#	local mod="${4:-NORMAL}"
+#  IFS="${2:-;}" read -ra xs <<< "${1//\n/}"
+#  for i in "${!xs[@]}"; do
+#    echo $(print " - ${xs[$i]//\"/}" $color $mod);
+#  done
+
+  while getopts "hl:s:" x; do
+    case "$x" in
+      h)  echo "XXX"; exit 0 ;;
+      l)  list="$OPTARG" ;;
+      s)  sep="$OPTARG" ;;
+    esac
+  done
+
+  local xs=( "${list}" )
+  printf "%s\n" "${xs[@]}"
+
+#  local xs=("$@")
+#  echo "size: ${#xs[@]}"
+#  for x in "${xs[@]}"; do
+#    echo "---${x}---"
+#  done
+#  IFS="${2:- }" read -ra xs2 <<< "${1//\n/}"
+#  for x in "${xs2[@]}"; do
+#    echo "---${x}---"
+#  done
+}
+
+function printDefListItem() {
+	local color1="${!3:-$DETAULT_THEME}"
+	local color2="${!4:-$DETAULT_THEME}"
+  local pad="${5:-20}"
+	printf "%b%b %-${pad}s %b%b %s %b\n" $(_getBG) $(_getFG $color1) \
+	"${1}" $RESET $(_getFG $color2) "${2}" $RESET
+}
+
+function printDefList() {
+	local color1="${3:-DETAULT_THEME}"
+	local color2="${4:-DETAULT_THEME}"
+  IFS="${2:-;}" read -ra xs <<< "${1//\n/}"
+  for i in "${!xs[@]}"; do
+    IFS=":" read -ra x <<< "${xs[$i]//\"/}"
+    printDefListItem "${x[0]}" "${x[1]}" $color1 $color2 $5
+  done
+}
+#!/usr/bin/env bash
+
+# --------------------------------
+# get
+# AWS_PROFILE=<PROFILE> aws-bash-utils ssm get -p /project/dev/user
+# --------------------------------
+
+function ssm_get_usage() {
+  local name=$1
+  cat <<EOF
+Usage: $name <[options]>
+Options:
+  -h      --help      Show help [flag]
+  -p      --path      Param path [string]
+EOF
+}
+
+function ssm_get() {
+  local name="aws-bash-utils ssm get"
+  local args=( )
+
+  for x; do
+    case "$x" in
+      --help)   args+=( -h ) ;;
+      --path)   args+=( -p ) ;;
+      *)        args+=( "$x" ) ;;
+    esac
+  done
+
+  set -- "${args[@]}"
+
+  unset OPTIND
+  while getopts ":hp:" x; do
+    case "$x" in
+      h)  ssm_get_usage "$name"; exit 0 ;;
+      p)  local path="$OPTARG" ;;
+    esac
+  done
+
+  if [[ -z "$path" ]]; then
+    print "invalid arguments" LIGHTRED; echo ""
+    ssm_get_usage "$name"
+    exit 1
+  fi
+
+  aws ssm get-parameters-by-path --path $path --query 'Parameters[*].{Name:Name, Value:Value, Version:Version}' --output table --recursive
+}
+
+# --------------------------------
+# put
+# AWS_PROFILE=<PROFILE> aws-bash-utils ssm put -p /dev/foo/bar=baz
+# AWS_PROFILE=<PROFILE> aws-bash-utils ssm put -p "/dev/hello/world=some value"
+# --------------------------------
+
+function ssm_put_usage() {
+  local name=$1
+  cat <<EOF
+Usage: $name <[options]>
+Options:
+  -h      --help      Show help [flag]
+  -p -pV  --path      Param path and value [string]
+  -g -ng  --no-get    Do not retrieve params after update / create [flag]
+EOF
+}
+
+function ssm_put() {
+  local name="aws-bash-utils ssm put"
+  local args=( )
+
+  for x; do
+    case "$x" in
+      --help)         args+=( -h ) ;;
+      --path|-pV)     args+=( -p ) ;;
+      --no-get|-nG)   args+=( -g ) ;;
+      *)              args+=( "$x" ) ;;
+    esac
+  done
+
+  set -- "${args[@]}"
+
+  local get=1
+
+  unset OPTIND
+  while getopts ":hp:g" x; do
+    case "$x" in
+      h)  ssm_put_usage "$name"; exit 0 ;;
+      p)  local pathAndValue="$OPTARG" ;;
+      g)  get=0 ;;
+    esac
+  done
+
+  if [[ -z "$pathAndValue" ]]; then
+    print "invalid arguments" LIGHTRED; echo ""
+    ssm_put_usage "$name"
+    exit 1
+  fi
+
+  local path=$(cut -d "=" -f 1 <<< $pathAndValue)
+  local value=$(cut -d "=" -f 2 <<< $pathAndValue)
+
+  print "${path} = ${value}"; echo ""
+
+  aws ssm put-parameter --type String --name "${path}" --value "${value}" --overwrite
+
+  local rootPath=$(cut -d "/" -f 2 <<< $path)
+  if [[ "$get" -eq "1" ]]; then
+    ssm_get -p "/${rootPath}"
+  fi
+}
+
+# --------------------------------
+# put
+# AWS_PROFILE=<PROFILE> aws-bash-utils ssm putjson -f <file>.json
+# --------------------------------
+
+function ssm_putjson_usage() {
+  local name=$1
+  cat <<EOF
+Usage: $name <[options]>
+Options:
+  -h      --help      Show help [flag]
+  -f      --file      JSON file to use as source for updating / adding params [string]
+EOF
+}
+
+function ssm_putjson() {
+  local name="aws-bash-utils ssm putjson"
+  local args=( )
+
+  for x; do
+    case "$x" in
+      --help)   args+=( -h ) ;;
+      --file)   args+=( -f ) ;;
+      *)        args+=( "$x" ) ;;
+    esac
+  done
+
+  set -- "${args[@]}"
+
+  unset OPTIND
+  while getopts ":hf:" x; do
+    case "$x" in
+      h)  ssm_putjson_usage "$name"; exit 0 ;;
+      f)  local file="$OPTARG" ;;
+    esac
+  done
+
+  if [[ -z "$file" ]]; then
+    print "invalid arguments" LIGHTRED; echo ""
+    ssm_putjson_usage "$name"
+    exit 1
+  fi
+
+  # TODO: make sure jq is available
+  cat $file | jq -c 'paths(scalars) as $p | [($p | join("/")), getpath($p)] | join("=")' | tr -d '"' | while read -r x; do
+    ssm_put -p "/${x}" -nG
+  done
+
+  local rootPath=$(cat $file | jq 'keys | .[0]' | tr -d '"')
+  ssm_get -p "/${rootPath}"
+}
+#!/usr/bin/env bash
+
+function ssm_usage() {
+  local name=$1
+  cat <<EOF
+Usage: $name <[options]>
+Options:
+  -h --help     Show help [flag]
+  get           Get params by path
+  put           Update or Create a single param by path
+  putjson       Update or Create multiple params by providing a JSON file
+EOF
+}
+
+function ssm_main() {
+  local name="aws-bash-utils ssm"
+  local target=$1
+
+  if [[ $# -eq 1 ]]; then
+    case "$1" in
+      --help|-h)  ssm_usage "$name"; exit 0 ;;
+    esac
+  fi
+
+  shift
+
+  case "$target" in
+    get)      ssm_get $@ ;;
+    put)      ssm_put $@ ;;
+    putjson)  ssm_putjson $@ ;;
+    *)        print "invalid arguments" LIGHTRED; echo ""
+              ssm_usage "$name"
+              exit 1
+              ;;
+  esac
+}
+#!/usr/bin/env bash
+
+function usage() {
+  local name=$1
+  cat <<EOF
+Usage: $name <[options]>
+Options:
+  -h --help     Show help [flag]
+  ssm           Param Store utils
+EOF
+}
+
+function main() {
+  local name="aws-bash-utils"
+  local target=$1
+
+  if [[ $# -eq 1 ]]; then
+    case "$1" in
+      --help|-h)  usage "$name"; exit 0 ;;
+    esac
+  fi
+
+  shift
+
+  case "$target" in
+    ssm)    ssm_main $@ ;;
+    *)      print "invalid arguments" LIGHTRED; echo ""
+            usage "$name"
+            exit 1
+            ;;
+  esac
+}
+
+main $@
