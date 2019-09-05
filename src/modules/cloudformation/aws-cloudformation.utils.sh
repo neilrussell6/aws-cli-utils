@@ -12,6 +12,7 @@ Usage: $name <[options]>
 Options:
   -h      --help      Show help [flag]
   -s      --stack     Stack name [string]
+  -f      --file      File to save output to [string]
 EOF
 }
 
@@ -23,6 +24,7 @@ function cform_list_resources() {
     case "$x" in
       --help)   args+=( -h ) ;;
       --stack)  args+=( -s ) ;;
+      --file)   args+=( -f ) ;;
       *)        args+=( "$x" ) ;;
     esac
   done
@@ -30,10 +32,11 @@ function cform_list_resources() {
   set -- "${args[@]}"
 
   unset OPTIND
-  while getopts ":hs:" x; do
+  while getopts ":hs:f:" x; do
     case "$x" in
       h)  cform_list_resources_usage "$name"; exit 0 ;;
       s)  local stack="$OPTARG" ;;
+      f)  local file="$OPTARG" ;;
     esac
   done
 
@@ -48,4 +51,8 @@ function cform_list_resources() {
   echo ""
   local count=$(aws cloudformation list-stack-resources --stack-name $stack --query 'StackResourceSummaries[*].LogicalResourceId' | jq '. | length')
   print "resources:" LIGHTBLUE; echo $count; echo ""
+
+  if [[ -n "$file" ]]; then
+    aws cloudformation list-stack-resources --stack-name $stack --query 'StackResourceSummaries[*].{id:LogicalResourceId, type:ResourceType}' > $file
+  fi
 }
