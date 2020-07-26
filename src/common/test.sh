@@ -1,5 +1,3 @@
-#!/usr/bin/env bash
-
 . "print.consts.sh"
 . "print.utils.sh"
 

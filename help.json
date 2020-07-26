@@ -1,0 +1,6 @@
+{
+  "link": "npm link project",
+  "build": "build executable",
+  "install": "build and copy executable to /usr/local/bin",
+  "init": "initialize project"
+}

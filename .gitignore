@@ -1,38 +1,33 @@
-# See https://help.github.com/ignore-files/ for more about ignoring files.
+# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
 
-# dependencies
+# ----------------------------
+# system
+# ----------------------------
+
+# OS : OSX
+.DS_Store
+
+# IDE
+.idea
+.vscode
+
+# ----------------------------
+# packages
+# ----------------------------
+
+# Javascript : dependencies
 /node_modules
 
-# testing
-/coverage
-.nyc_output/
-
-# production
+# Javascript : build
 /build
 
-# misc
-.DS_Store
+# Javascript : misc
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
-.local
 
-# env
+# Environment
 .env
-.env.local
-.env.dev
-.env.staging
-.env.preprod
-.env.prod
-.env.test
 
-env.yml
-
-# ide
-.idea
-
-# local
+# Misc
 .backups
-
-# docker
-docker-compose.yml

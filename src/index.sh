@@ -1,5 +1,3 @@
-#!/usr/bin/env bash
-
 function usage() {
   local name=$1
   cat <<EOF

@@ -1,5 +1,3 @@
-#!/usr/bin/env bash
-
 LIGHTER_GREY=246
 LIGHT_GREY=244
 GREY=243

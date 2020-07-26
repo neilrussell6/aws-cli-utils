@@ -1,5 +1,3 @@
-#!/usr/bin/env bash
-
 function _getBG() {
   echo "\033[48;5;${1}m"
 }
@@ -52,16 +50,6 @@ function printList() {
 
   local xs=( "${list}" )
   printf "%s\n" "${xs[@]}"
-
-#  local xs=("$@")
-#  echo "size: ${#xs[@]}"
-#  for x in "${xs[@]}"; do
-#    echo "---${x}---"
-#  done
-#  IFS="${2:- }" read -ra xs2 <<< "${1//\n/}"
-#  for x in "${xs2[@]}"; do
-#    echo "---${x}---"
-#  done
 }
 
 function printDefListItem() {

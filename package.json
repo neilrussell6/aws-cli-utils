@@ -1,24 +1,25 @@
 {
-  "name": "aws-bash-utils",
-  "version": "1.0.0",
-  "description": "",
+  "name": "aws-cli-utils",
+  "version": "0.0.1",
+  "description": "Wrapper for AWS CLI that provides useful utils (requires AWS CLI)",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "_build": "make",
     "_unlink": "npm unlink",
     "_link": "npm link",
-    "help": "aws-bash-utils -h",
+    "build": "make",
     "link": "npm-run-all _build _link help",
-    "unlink": "npm run _unlink"
+    "install": "make install",
+    "unlink": "npm run _unlink",
+    "help": "aws-cli-utils -h"
   },
   "keywords": [],
-  "author": "",
+  "author": "Neil Russell <neilrussell6@gmail.com>",
   "license": "ISC",
   "bin": {
-    "aws-bash-utils": "./dist/main"
+    "aws-cli-utils": "./dist/main"
   },
   "devDependencies": {
-    "npm-run-all": "^4.1.5"
+    "npm-run-all": "^4.1.5",
+    "package-json-help": "0.0.10"
   }
 }

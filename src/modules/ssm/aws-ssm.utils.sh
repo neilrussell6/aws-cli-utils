@@ -1,5 +1,3 @@
-#!/usr/bin/env bash
-
 # --------------------------------
 # get
 # AWS_PROFILE=<PROFILE> aws-bash-utils ssm get -p /project/dev/user
@@ -12,6 +10,7 @@ Usage: $name <[options]>
 Options:
   -h      --help      Show help [flag]
   -p      --path      Param path [string]
+  -j      --json      Output as JSON [flag]
 EOF
 }
 
@@ -23,16 +22,20 @@ function ssm_get() {
     case "$x" in
       --help)   args+=( -h ) ;;
       --path)   args+=( -p ) ;;
+      --json)   args+=( -j ) ;;
       *)        args+=( "$x" ) ;;
     esac
   done
 
   set -- "${args[@]}"
 
+  local outputAsJSON=0
+
   unset OPTIND
-  while getopts ":hp:" x; do
+  while getopts ":hjp:" x; do
     case "$x" in
       h)  ssm_get_usage "$name"; exit 0 ;;
+      j)  outputAsJSON=1 ;;
       p)  local path="$OPTARG" ;;
     esac
   done
@@ -43,13 +46,18 @@ function ssm_get() {
     exit 1
   fi
 
-  aws ssm get-parameters-by-path --path $path --query 'Parameters[*].{Name:Name, Value:Value, Version:Version}' --output table --recursive
+  if [[ "${outputAsJSON}" -eq "1" ]]; then
+    aws ssm get-parameters-by-path --path $path --query 'Parameters[*].{Name:Name, Value:Value, Version:Version}' --recursive
+  else
+    aws ssm get-parameters-by-path --path $path --query 'Parameters[*].{Name:Name, Value:Value, Version:Version}' --output table --recursive
+  fi
 }
 
 # --------------------------------
 # put
 # AWS_PROFILE=<PROFILE> aws-bash-utils ssm put -p /dev/foo/bar=baz
 # AWS_PROFILE=<PROFILE> aws-bash-utils ssm put -p "/dev/hello/world=some value"
+# AWS_PROFILE=<PROFILE> aws-bash-utils ssm put -p "/dev/hello/world=some url" -u
 # --------------------------------
 
 function ssm_put_usage() {
@@ -60,6 +68,7 @@ Options:
   -h      --help      Show help [flag]
   -p -pV  --path      Param path and value [string]
   -g -ng  --no-get    Do not retrieve params after update / create [flag]
+  -u      --url       Do not retrieve URL value
 EOF
 }
 
@@ -72,6 +81,7 @@ function ssm_put() {
       --help)         args+=( -h ) ;;
       --path|-pV)     args+=( -p ) ;;
       --no-get|-nG)   args+=( -g ) ;;
+      --url|-u)       args+=( -u ) ;;
       *)              args+=( "$x" ) ;;
     esac
   done
@@ -79,17 +89,19 @@ function ssm_put() {
   set -- "${args[@]}"
 
   local get=1
+  local isUrlValue=0
 
   unset OPTIND
-  while getopts ":hp:g" x; do
+  while getopts ":hugp:" x; do
     case "$x" in
       h)  ssm_put_usage "$name"; exit 0 ;;
       p)  local pathAndValue="$OPTARG" ;;
+      u)  isUrlValue=1 ;;
       g)  get=0 ;;
     esac
   done
 
-  if [[ -z "$pathAndValue" ]]; then
+  if [[ -z "${pathAndValue}" ]]; then
     print "invalid arguments" LIGHTRED; echo ""
     ssm_put_usage "$name"
     exit 1
@@ -100,7 +112,12 @@ function ssm_put() {
 
   print "${path} = ${value}"; echo ""
 
-  aws ssm put-parameter --type String --name "${path}" --value "${value}" --overwrite
+  echo $isUrlValue
+  if [[ "${isUrlValue}" -eq "1" ]]; then
+    aws ssm put-parameter --cli-input-json "{\"Type\": \"String\", \"Name\": \"${path}\", \"Value\": \"${value}\"}" --overwrite
+  else
+    aws ssm put-parameter --type String --name "${path}" --value "${value}" --overwrite
+  fi
 
   local rootPath=$(cut -d "/" -f 2 <<< $path)
   if [[ "$get" -eq "1" ]]; then
@@ -152,10 +169,22 @@ function ssm_putjson() {
   fi
 
   # TODO: make sure jq is available
-  cat $file | jq -c 'paths(scalars) as $p | [($p | join("/")), getpath($p)] | join("=")' | tr -d '"' | while read -r x; do
-    ssm_put -p "/${x}" -nG
-  done
 
   local rootPath=$(cat $file | jq 'keys | .[0]' | tr -d '"')
+  local currentJSON=$(ssm_get -p "/${rootPath}" -j)
+  local newJSON=$(cat $file)
+
+  echo $newJSON | jq -c 'paths(scalars) as $p | [($p | join("/")), getpath($p)]' | while read -r x; do
+    local key=$(echo $x | jq .[0] | tr -d '"')
+    local value=$(echo $x | jq .[1] | tr -d '"')
+    local oldValue=$(echo "${currentJSON}" | jq --arg v "/${key}" -c '.[] | select( .Name == $v ) | .Value' | tr -d '"')
+    if [[ "${value}" == "${oldValue}" ]]; then
+      print "${key}" WHITE; print "NO CHANGE" GREY; echo ""
+    else
+      print "${key}  [CHANGED]" LIME; print "updating ..." GREY; echo ""
+      ssm_put -p "/${key}=${value}" -nG -u
+    fi
+  done
+
   ssm_get -p "/${rootPath}"
 }

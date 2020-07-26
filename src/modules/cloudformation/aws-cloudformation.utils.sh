@@ -1,5 +1,3 @@
-#!/usr/bin/env bash
-
 # --------------------------------
 # get
 # AWS_PROFILE=<PROFILE> aws-bash-utils cform list-resources -s my-stack

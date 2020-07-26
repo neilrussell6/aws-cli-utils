@@ -1,5 +1,3 @@
-#!/usr/bin/env bash
-
 function cform_usage() {
   local name=$1
   cat <<EOF
